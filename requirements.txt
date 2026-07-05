@@ -1,0 +1,8 @@
+altgraph==0.17.5
+future==1.0.0
+packaging==26.2
+pillow==12.2.0
+pyinstaller==6.21.0
+pyinstaller-hooks-contrib==2026.6
+setuptools==82.0.1
+tkinterdnd2==0.5.0
