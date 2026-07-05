@@ -14,7 +14,7 @@ A powerful desktop application for adding text overlays to images with batch pro
 - **User-Friendly Interface** - Intuitive design with clear navigation
 
 ## Preview
-![Главное окно программы](screenshot.png)
+<img src="screenshot.png" alt="Login page" height="500">
 
 
 ## Installation
@@ -109,7 +109,7 @@ pip install pyinstaller
 
 2. Build the executable:
 ```bash
-pyinstaller --onefile --windowed --name "ImageTextOverlay" --add-data "screenshot.png;." text_overlay.py
+pyinstaller --onefile --windowed --hidden-import=PIL._tkinter_finder --hidden-import=PIL._imagingtk --name ImageTextOverlay main.py
 ```
 
 ### Using the Build Script
