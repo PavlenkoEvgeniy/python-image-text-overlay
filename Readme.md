@@ -1,29 +1,29 @@
-# Image Text Overlay
+# 🖼️ Image Text Overlay
 
 A powerful desktop application for adding text overlays to images with batch processing support.
 
-## Features
+## ✨ Features
 
-- **Batch Processing** - Process multiple images at once with the same text settings
-- **Drag & Drop Support** - Simply drag and drop images into the application
-- **Text Customization** - Customize text content, color, font, size, and style
-- **Position Control** - Choose from multiple text positions with offset adjustments
-- **Preview Functionality** - See how your text will look before saving
-- **Flexible Saving Options** - Save to a separate folder or overwrite original files
-- **Font Selection** - Use system fonts or load custom `.ttf` and `.otf` files
-- **User-Friendly Interface** - Intuitive design with clear navigation
+- 📊 **Batch Processing** - Process multiple images at once with the same text settings
+- 🖱️ **Drag & Drop Support** - Simply drag and drop images into the application
+- 🎨 **Text Customization** - Customize text content, color, font, size, and style
+- 📍 **Position Control** - Choose from multiple text positions with offset adjustments
+- 👁️ **Preview Functionality** - See how your text will look before saving
+- 💾 **Flexible Saving Options** - Save to a separate folder or overwrite original files
+- 🔤 **Font Selection** - Use system fonts or load custom `.ttf` and `.otf` files
+- 🧭 **User-Friendly Interface** - Intuitive design with clear navigation
 
-## Preview
+## 🖼️ Preview
+
 <img src="screenshot.png" alt="Login page" height="500">
 
+## 📥 Installation
 
-## Installation
-
-### Prerequisites
+### 📋 Prerequisites
 - Python 3.6 or higher
 - Required Python packages
 
-### Install from Source
+### 📦 Install from Source
 
 1. Clone or download the repository:
 ```bash
@@ -36,49 +36,49 @@ cd image-text-overlay
 pip install -r requirements.txt
 ```
 
-### Dependencies
+### 📚 Dependencies
 
 The application requires the following Python packages:
-- `Pillow` - For image processing
-- `tkinterdnd2` (optional) - For drag & drop support
+- `Pillow` 🖼️ - For image processing
+- `tkinterdnd2` (optional) 🖱️ - For drag & drop support
 
-### Installing tkinterdnd2 (Optional)
+### 🛠️ Installing tkinterdnd2 (Optional)
 
 For drag & drop functionality, install:
 ```bash
 pip install tkinterdnd2
 ```
 
-## Usage
+## 🚀 Usage
 
-### Basic Workflow
+### 📝 Basic Workflow
 
-1. **Load Images**
+1. **Load Images** 🖼️
    - Click "Select Images" button or
    - Drag & drop image files into the application window
 
-2. **Customize Text Settings**
+2. **Customize Text Settings** 🎨
    - Enter your desired text
    - Choose text color (click "Choose color")
    - Select font style and size
    - Adjust text position and offsets
    - Optionally load a custom font file
 
-3. **Apply to Images**
+3. **Apply to Images** ▶️
    - Click "Preview" to see the result on the current image
    - Click "Apply to All" to process all loaded images
 
-4. **Save Results**
+4. **Save Results** 💾
    - "Save Current" - Save the currently displayed image
    - "Save All" - Save all processed images
    - Check "Overwrite original file" to replace originals
 
-### Navigation Controls
+### ⬅️➡️ Navigation Controls
 - **Previous/Next** - Navigate through loaded images
 - **File name** - Shows the current file being edited
 - **Counter** - Shows current image position (e.g., "3 / 10")
 
-### Text Settings Explained
+### ℹ️ Text Settings Explained
 
 | Setting | Description |
 |---------|-------------|
@@ -91,14 +91,14 @@ pip install tkinterdnd2
 | Font size | Size of the text (10-200) |
 | Font file | Select custom .ttf or .otf font file |
 
-### Supported Image Formats
+### 📁 Supported Image Formats
 - PNG (`.png`)
 - JPEG (`.jpg`, `.jpeg`)
 - BMP (`.bmp`)
 - GIF (`.gif`)
 - TIFF (`.tiff`, `.tif`)
 
-## Building Standalone Executable
+## 🔨 Building Standalone Executable
 
 ### Using PyInstaller
 
@@ -118,7 +118,7 @@ pyinstaller --onefile --windowed --hidden-import=PIL._tkinter_finder --hidden-im
 make pyinstaller
 ```
 
-## File Structure
+## 📂 File Structure
 
 ```
 image-text-overlay/
@@ -131,7 +131,7 @@ image-text-overlay/
 └── processed_images/    # Default output directory
 ```
 
-## Running the Application
+## ▶️ Running the Application
 
 ### From Source
 ```bash
@@ -149,21 +149,21 @@ pyinstaller --onefile --windowed --hidden-import=PIL._tkinter_finder --hidden-im
 
 The executable will be created in the `dist/` folder.
 
-## Troubleshooting
+## 🔧 Troubleshooting
 
-### Drag & Drop Not Working
+### 🖱️ Drag & Drop Not Working
 - Ensure `tkinterdnd2` is installed: `pip install tkinterdnd2`
 - The application will still work without drag & drop using the "Select Images" button
 
-### Font Loading Issues
+### 🔤 Font Loading Issues
 - The application will fall back to system fonts if custom font fails to load
 - Supported font formats: `.ttf`, `.otf`
 
-### Image Processing Errors
+### 🖼️ Image Processing Errors
 - Make sure images are not corrupted or in unsupported formats
 - Check that you have write permissions for the output directory
 
-## About
+## ℹ️ About
 
 **Version:** 1.0.0  
 **License:** Freeware  
@@ -172,11 +172,11 @@ The executable will be created in the `dist/` folder.
 
 Copyright © 2026
 
-## Contributing
+## 🤝 Contributing
 
 Feel free to submit issues, feature requests, or pull requests on the GitHub repository.
 
-## Changelog
+## 📜 Changelog
 
 ### Version 1.0.0
 - Initial release
@@ -186,7 +186,7 @@ Feel free to submit issues, feature requests, or pull requests on the GitHub rep
 - Preview functionality
 - Multiple saving options
 
-## Support
+## 📧 Support
 
 For issues or questions:
 - Email: pavlenkoevgeniy85@gmail.com
