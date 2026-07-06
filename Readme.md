@@ -122,13 +122,32 @@ make pyinstaller
 
 ```
 image-text-overlay/
-├── text_overlay.py      # Main application file
-├── build.py             # Build script for executable
+├── main.py              # Main application file
+├── Makefile             # Build script for PyInstaller
 ├── requirements.txt     # Python dependencies
 ├── README.md            # This documentation
+├── LICENSE.md           # License file
 ├── screenshot.png       # Application screenshot
 └── processed_images/    # Default output directory
 ```
+
+## Running the Application
+
+### From Source
+```bash
+python main.py
+```
+
+### Building Standalone Executable
+```bash
+make pyinstaller
+```
+Or manually:
+```bash
+pyinstaller --onefile --windowed --hidden-import=PIL._tkinter_finder --hidden-import=PIL._imagingtk --name ImageTextOverlay main.py
+```
+
+The executable will be created in the `dist/` folder.
 
 ## Troubleshooting
 
