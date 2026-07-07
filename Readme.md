@@ -15,12 +15,13 @@ A powerful desktop application for adding text overlays to images with batch pro
 
 ## 🖼️ Preview
 
-<img src="screenshot.png" alt="Login page" height="500">
+<img src="screenshot.png" alt="Application screenshot" height="500">
 
 ## 📥 Installation
 
 ### 📋 Prerequisites
-- Python 3.6 or higher
+
+- Python 3.8 or higher
 - Required Python packages
 
 ### 📦 Install from Source
@@ -31,20 +32,34 @@ git clone https://github.com/EvgeniyPavlenko85/image-text-overlay.git
 cd image-text-overlay
 ```
 
-2. Install required dependencies:
+2. Create and activate a virtual environment:
 ```bash
-pip install -r requirements.txt
+python -m venv .venv
+source .venv/bin/activate  # Linux/macOS
+# or
+.venv\Scripts\activate     # Windows
+```
+
+3. Install dependencies:
+```bash
+pip install -e .
 ```
 
 ### 📚 Dependencies
 
 The application requires the following Python packages:
+
 - `Pillow` 🖼️ - For image processing
 - `tkinterdnd2` (optional) 🖱️ - For drag & drop support
 
 ### 🛠️ Installing tkinterdnd2 (Optional)
 
 For drag & drop functionality, install:
+```bash
+pip install -e ".[dnd]"
+```
+
+Or install tkinterdnd2 separately:
 ```bash
 pip install tkinterdnd2
 ```
@@ -74,6 +89,7 @@ pip install tkinterdnd2
    - Check "Overwrite original file" to replace originals
 
 ### ⬅️➡️ Navigation Controls
+
 - **Previous/Next** - Navigate through loaded images
 - **File name** - Shows the current file being edited
 - **Counter** - Shows current image position (e.g., "3 / 10")
@@ -92,56 +108,86 @@ pip install tkinterdnd2
 | Font file | Select custom .ttf or .otf font file |
 
 ### 📁 Supported Image Formats
+
 - PNG (`.png`)
 - JPEG (`.jpg`, `.jpeg`)
 - BMP (`.bmp`)
 - GIF (`.gif`)
 - TIFF (`.tiff`, `.tif`)
 
-## 🔨 Building Standalone Executable
+## 🏗️ Development
 
-### Using PyInstaller
+### 📂 Project Structure
 
-1. Install PyInstaller:
-```bash
-pip install pyinstaller
+```
+image-text-overlay/
+├── src/image_text/          # Package source
+│   ├── __init__.py         # Package metadata
+│   ├── config.py           # Configuration & constants
+│   ├── processor.py        # Business logic (image processing)
+│   ├── logging_config.py  # Logging setup
+│   ├── ui.py               # Tkinter UI components
+│   └── __main__.py         # CLI entry point
+├── tests/                   # Test suite
+│   ├── conftest.py         # Pytest configuration
+│   ├── test_processor.py  # Processor tests
+│   └── test_ui.py         # UI integration tests
+├── pyproject.toml          # Package configuration
+├── Makefile                # Build script
+├── requirements.txt        # Legacy requirements (for PyInstaller)
+└── README.md               # This documentation
 ```
 
-2. Build the executable:
+### 🧪 Running Tests
+
 ```bash
+# Install test dependencies
+pip install -e ".[dev]"
+
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=image_text
+```
+
+### 🔨 Building Standalone Executable
+
+Using PyInstaller:
+
+```bash
+pip install pyinstaller
 pyinstaller --onefile --windowed --hidden-import=PIL._tkinter_finder --hidden-import=PIL._imagingtk --name ImageTextOverlay main.py
 ```
 
-### Using the Build Script
+Or using the Makefile:
 
 ```bash
 make pyinstaller
 ```
 
-## 📂 File Structure
-
-```
-image-text-overlay/
-├── main.py              # Main application file
-├── Makefile             # Build script for PyInstaller
-├── requirements.txt     # Python dependencies
-├── README.md            # This documentation
-├── LICENSE.md           # License file
-├── screenshot.png       # Application screenshot
-└── processed_images/    # Default output directory
-```
+The executable will be created in the `dist/` folder.
 
 ## ▶️ Running the Application
 
 ### From Source
+
 ```bash
 python main.py
 ```
 
+Or:
+
+```bash
+python -m image_text
+```
+
 ### Building Standalone Executable
+
 ```bash
 make pyinstaller
 ```
+
 Or manually:
 ```bash
 pyinstaller --onefile --windowed --hidden-import=PIL._tkinter_finder --hidden-import=PIL._imagingtk --name ImageTextOverlay main.py
@@ -152,14 +198,17 @@ The executable will be created in the `dist/` folder.
 ## 🔧 Troubleshooting
 
 ### 🖱️ Drag & Drop Not Working
+
 - Ensure `tkinterdnd2` is installed: `pip install tkinterdnd2`
 - The application will still work without drag & drop using the "Select Images" button
 
 ### 🔤 Font Loading Issues
+
 - The application will fall back to system fonts if custom font fails to load
 - Supported font formats: `.ttf`, `.otf`
 
 ### 🖼️ Image Processing Errors
+
 - Make sure images are not corrupted or in unsupported formats
 - Check that you have write permissions for the output directory
 
@@ -179,16 +228,20 @@ Feel free to submit issues, feature requests, or pull requests on the GitHub rep
 ## 📜 Changelog
 
 ### Version 1.0.0
+
 - Initial release
 - Batch image processing
 - Drag & drop support
 - Customizable text overlay
 - Preview functionality
 - Multiple saving options
+- Refactored with proper package structure
+- Added comprehensive test suite
 
 ## 📧 Support
 
 For issues or questions:
+
 - Email: pavlenkoevgeniy85@gmail.com
 - GitHub Issues: [Create an issue](https://github.com/EvgeniyPavlenko85/image-text-overlay/issues)
 
