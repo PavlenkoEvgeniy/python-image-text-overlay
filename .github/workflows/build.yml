@@ -49,9 +49,12 @@ jobs:
       - name: Install PyInstaller
         run: pip install pyinstaller
 
+      - name: Install tkinterdnd2 for build
+        run: pip install tkinterdnd2
+
       - name: Build executable
         run: |
-          pyinstaller --onefile --windowed --name ${{ matrix.build_name }} main.py
+          pyinstaller --onefile --windowed --hidden-import=PIL._tkinter_finder --hidden-import=PIL._imagingtk --hidden-import=tkinterdnd2 --name ${{ matrix.build_name }} main.py
         env:
           PYTHONPATH: src
 
