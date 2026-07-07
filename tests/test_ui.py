@@ -21,7 +21,7 @@ class TestUIConfiguration:
         from image_text.config import config
 
         assert config.name == "Image Text Overlay"
-        assert config.version == "1.0.1"
+        assert config.version == "1.0.2"
         assert config.window_width == 950
         assert config.window_height == 750
         assert config.default_font_size == 40

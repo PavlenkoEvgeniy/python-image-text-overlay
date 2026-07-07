@@ -10,7 +10,7 @@ class AppConfig:
     """Application configuration."""
 
     name: str = "Image Text Overlay"
-    version: str = "1.0.1"
+    version: str = "1.0.2"
     window_width: int = 950
     window_height: int = 750
 

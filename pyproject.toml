@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "image-text-overlay"
-version = "1.0.1"
+version = "1.0.2"
 description = "A desktop application for adding text overlays to images"
 readme = "Readme.md"
 license = {text = "MIT"}

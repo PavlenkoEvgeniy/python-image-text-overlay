@@ -157,7 +157,7 @@ Using PyInstaller:
 
 ```bash
 pip install pyinstaller
-pyinstaller --onefile --windowed --hidden-import=PIL._tkinter_finder --hidden-import=PIL._imagingtk --name ImageTextOverlay main.py
+pyinstaller --onefile --windowed --hidden-import=PIL._tkinter_finder --hidden-import=PIL._imagingtk --hidden-import=tkinterdnd2 --name ImageTextOverlay main.py
 ```
 
 Or using the Makefile:
@@ -190,7 +190,7 @@ make pyinstaller
 
 Or manually:
 ```bash
-pyinstaller --onefile --windowed --hidden-import=PIL._tkinter_finder --hidden-import=PIL._imagingtk --name ImageTextOverlay main.py
+pyinstaller --onefile --windowed --hidden-import=PIL._tkinter_finder --hidden-import=PIL._imagingtk --hidden-import=tkinterdnd2 --name ImageTextOverlay main.py
 ```
 
 The executable will be created in the `dist/` folder.
@@ -214,7 +214,7 @@ The executable will be created in the `dist/` folder.
 
 ## ℹ️ About
 
-**Version:** 1.0.1  
+**Version:** 1.0.2  
 **License:** Freeware  
 **Author:** Pavlenko Evgeniy  
 **Email:** pavlenkoevgeniy85@gmail.com  
