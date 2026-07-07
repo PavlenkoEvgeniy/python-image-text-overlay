@@ -214,7 +214,7 @@ The executable will be created in the `dist/` folder.
 
 ## ℹ️ About
 
-**Version:** 1.0.0  
+**Version:** 1.0.1  
 **License:** Freeware  
 **Author:** Pavlenko Evgeniy  
 **Email:** pavlenkoevgeniy85@gmail.com  
@@ -226,6 +226,12 @@ Copyright © 2026
 Feel free to submit issues, feature requests, or pull requests on the GitHub repository.
 
 ## 📜 Changelog
+
+### Version 1.0.1
+
+- Refactored with proper package structure
+- Added comprehensive test suite
+- Added logging configuration
 
 ### Version 1.0.0
 
