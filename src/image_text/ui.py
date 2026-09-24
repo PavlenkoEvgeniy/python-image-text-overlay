@@ -9,7 +9,7 @@ from tkinter import ttk, colorchooser, filedialog, messagebox
 from PIL import Image, ImageTk
 
 from .config import config
-from .processor import ImageProcessor
+from .processor import ImageProcessor, load_image
 from .logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -371,7 +371,7 @@ class TextOverlayUI:
         if self.image_paths and self.current_index < len(self.image_paths):
             try:
                 image_path = self.image_paths[self.current_index]
-                self.original_image = Image.open(image_path)
+                self.original_image = load_image(image_path)
                 self.filename_label.config(text=os.path.basename(image_path))
                 self.show_preview()
                 self.update_counter()
@@ -470,7 +470,7 @@ class TextOverlayUI:
 
         for path in self.image_paths:
             try:
-                img = Image.open(path)
+                img = load_image(path)
                 result = self.processor.apply_text(img)
                 if result:
                     self.processed_images.append(result)
@@ -612,15 +612,27 @@ class TextOverlayUI:
             os.path.join(self.app_dir, config.default_output_dir)
         )
 
+    def _center_window(self, window: tk.Toplevel, width: int, height: int) -> None:
+        """Position a Toplevel window centered over the main window.
+
+        Args:
+            window: Window to position.
+            width: Window width in pixels.
+            height: Window height in pixels.
+        """
+        x = self.root.winfo_rootx() + (self.root.winfo_width() - width) // 2
+        y = self.root.winfo_rooty() + (self.root.winfo_height() - height) // 2
+        window.geometry(f"{width}x{height}+{x}+{y}")
+
     def show_about(self) -> None:
         """Show about dialog."""
         about_window = tk.Toplevel(self.root)
         about_window.title("About")
-        about_window.geometry("550x450")
         about_window.resizable(False, False)
 
         about_window.transient(self.root)
         about_window.grab_set()
+        self._center_window(about_window, 550, 450)
 
         main_frame = ttk.Frame(about_window, padding="30")
         main_frame.pack(fill=tk.BOTH, expand=True)
