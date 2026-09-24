@@ -9,7 +9,7 @@ from tkinter import ttk, colorchooser, filedialog, messagebox
 from PIL import Image, ImageTk
 
 from .config import config
-from .processor import ImageProcessor
+from .processor import ImageProcessor, load_image
 from .logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -371,7 +371,7 @@ class TextOverlayUI:
         if self.image_paths and self.current_index < len(self.image_paths):
             try:
                 image_path = self.image_paths[self.current_index]
-                self.original_image = Image.open(image_path)
+                self.original_image = load_image(image_path)
                 self.filename_label.config(text=os.path.basename(image_path))
                 self.show_preview()
                 self.update_counter()
@@ -470,7 +470,7 @@ class TextOverlayUI:
 
         for path in self.image_paths:
             try:
-                img = Image.open(path)
+                img = load_image(path)
                 result = self.processor.apply_text(img)
                 if result:
                     self.processed_images.append(result)

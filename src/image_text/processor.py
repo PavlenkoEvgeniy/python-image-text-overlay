@@ -7,7 +7,7 @@ from typing import Optional, Tuple
 
 from typing import Union
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 # Type alias for font objects
 FontType = Union[ImageFont.FreeTypeFont, ImageFont.ImageFont]
@@ -15,6 +15,23 @@ FontType = Union[ImageFont.FreeTypeFont, ImageFont.ImageFont]
 from .config import config
 
 logger = logging.getLogger(__name__)
+
+
+def load_image(path: str) -> Image.Image:
+    """Load an image with its visual orientation baked into pixels.
+
+    Viewers display an image according to its EXIF Orientation tag, which may
+    differ from how pixels are physically stored in the file. This function
+    transposes the pixels to match the visual orientation, so all further
+    processing works on what the user sees.
+
+    Args:
+        path: Path to the image file.
+
+    Returns:
+        PIL Image in visual orientation.
+    """
+    return ImageOps.exif_transpose(Image.open(path))
 
 
 class FontStyle(Enum):
@@ -210,7 +227,7 @@ class ImageProcessor:
             Processed PIL Image, or None on error.
         """
         try:
-            img = Image.open(image_path)
+            img = load_image(image_path)
             return self.apply_text(img)
         except Exception as e:
             logger.error(f"Failed to process image {image_path}: {e}")
