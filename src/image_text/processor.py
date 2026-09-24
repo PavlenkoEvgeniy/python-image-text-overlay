@@ -58,6 +58,7 @@ class ImageProcessor:
         self,
         text: str = "",
         color: str = "#FFFFFF",
+        font_family: Optional[str] = None,
         font_path: Optional[str] = None,
         font_size: int = 40,
         font_style: str = "Normal",
@@ -70,7 +71,8 @@ class ImageProcessor:
         Args:
             text: Text to overlay on images.
             color: Text color (hex format).
-            font_path: Path to custom font file.
+            font_family: System font family name. Ignored when font_path is set.
+            font_path: Path to custom font file; takes precedence over font_family.
             font_size: Font size in pixels.
             font_style: Font style (Normal, Bold, Italic, Bold Italic).
             position: Text position on image.
@@ -79,6 +81,7 @@ class ImageProcessor:
         """
         self.text = text
         self.color = color
+        self.font_family = font_family
         self.font_path = font_path
         self.font_size = font_size
         self.font_style = font_style
@@ -86,8 +89,20 @@ class ImageProcessor:
         self.offset_up = offset_up
         self.offset_left = offset_left
 
+    # Suffix appended to a family name to probe its styled variant
+    STYLE_SUFFIXES = {
+        "Normal": "",
+        "Bold": " Bold",
+        "Italic": " Italic",
+        "Bold Italic": " Bold Italic",
+    }
+
     def get_font(self, size: int) -> FontType:
-        """Get PIL ImageFont with specified style.
+        """Get PIL ImageFont honoring the single-font rule.
+
+        A custom font file, when set, is the active font. Otherwise the
+        selected system family is used. If neither resolves, the fallback
+        chain applies.
 
         Args:
             size: Font size in pixels.
@@ -95,18 +110,7 @@ class ImageProcessor:
         Returns:
             ImageFont object.
         """
-        style = self.font_style
-
-        if style == "Bold":
-            pil_style = "bold"
-        elif style == "Italic":
-            pil_style = "italic"
-        elif style == "Bold Italic":
-            pil_style = "bold italic"
-        else:
-            pil_style = "normal"
-
-        # Try custom font first
+        # Custom font file takes precedence (one active font at a time)
         if self.font_path and os.path.exists(self.font_path):
             try:
                 font = ImageFont.truetype(self.font_path, size)
@@ -115,7 +119,12 @@ class ImageProcessor:
             except Exception as e:
                 logger.warning(f"Failed to load custom font {self.font_path}: {e}. Using fallback.")
 
-        # Try system fonts
+        # System font selected by family name
+        font = self._load_system_font(size)
+        if font is not None:
+            return font
+
+        # Fallback system fonts
         for font_name in config.system_fonts:
             try:
                 font = ImageFont.truetype(font_name, size)
@@ -127,6 +136,38 @@ class ImageProcessor:
         # Fallback to default font
         logger.info("Using default PIL font")
         return ImageFont.load_default()
+
+    def _load_system_font(self, size: int) -> Optional[FontType]:
+        """Load the selected system font by family name, honoring the style.
+
+        Tries the styled variant first (e.g. "Family Bold"), then the plain
+        family. Variant resolution is done by the OS; when a variant or the
+        whole family is not installed, None is returned and the fallback
+        chain applies.
+
+        Args:
+            size: Font size in pixels.
+
+        Returns:
+            ImageFont object, or None when the family is not resolvable.
+        """
+        if not self.font_family:
+            return None
+
+        suffix = self.STYLE_SUFFIXES.get(self.font_style, "")
+        candidates = [f"{self.font_family}{suffix}"] if suffix else []
+        candidates.append(self.font_family)
+
+        for name in candidates:
+            try:
+                font = ImageFont.truetype(name, size)
+                logger.debug(f"Loaded system font: {name}")
+                return font
+            except OSError:
+                continue
+
+        logger.warning(f"System font '{self.font_family}' not found, using fallback")
+        return None
 
     def get_text_size(self, draw: ImageDraw.ImageDraw, text: str, font: FontType) -> Tuple[int, int]:
         """Calculate text bounding box dimensions.
@@ -271,6 +312,7 @@ class ImageProcessor:
         return cls(
             text=settings.get("text", ""),
             color=settings.get("color", config.default_color),
+            font_family=settings.get("font_family"),
             font_path=settings.get("font_path"),
             font_size=settings.get("font_size", config.default_font_size),
             font_style=settings.get("font_style", config.default_font_style),
@@ -288,6 +330,7 @@ class ImageProcessor:
         return {
             "text": self.text,
             "color": self.color,
+            "font_family": self.font_family,
             "font_path": self.font_path,
             "font_size": self.font_size,
             "font_style": self.font_style,

@@ -10,7 +10,7 @@ class AppConfig:
     """Application configuration."""
 
     name: str = "Image Text Overlay"
-    version: str = "1.0.2"
+    version: str = "1.0.4"
     window_width: int = 950
     window_height: int = 750
 
@@ -28,6 +28,7 @@ class AppConfig:
     default_offset_up: int = 20
     default_offset_left: int = 20
     default_font_style: str = "Normal"
+    default_font_family: str = "Arial"
 
     # Font styles
     font_styles: Tuple[str, ...] = ("Normal", "Bold", "Italic", "Bold Italic")
