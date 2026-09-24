@@ -5,6 +5,7 @@ import os
 from typing import Optional, Callable
 
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import ttk, colorchooser, filedialog, messagebox
 from PIL import Image, ImageTk
 
@@ -191,8 +192,22 @@ class TextOverlayUI:
         self.offset_left.grid(row=3, column=3, sticky=tk.W, pady=5, padx=5)
         self.offset_left.insert(0, str(config.default_offset_left))
 
+        # Font family (system fonts)
+        ttk.Label(settings_frame, text="Font:").grid(row=4, column=0, sticky=tk.W, pady=5)
+        self.font_family_var = tk.StringVar(value=config.default_font_family)
+        self.font_families_menu = ttk.Combobox(
+            settings_frame,
+            textvariable=self.font_family_var,
+            values=self._system_font_families(),
+            state="readonly",
+            width=20,
+            postcommand=self._refresh_font_families,
+        )
+        self.font_families_menu.grid(row=4, column=1, sticky=tk.W, pady=5, padx=5)
+        self.font_families_menu.bind("<<ComboboxSelected>>", self._on_font_family_selected)
+
         # Font style
-        ttk.Label(settings_frame, text="Font style:").grid(row=4, column=0, sticky=tk.W, pady=5)
+        ttk.Label(settings_frame, text="Font style:").grid(row=4, column=2, sticky=tk.W, pady=5, padx=(20, 0))
         self.font_style_var = tk.StringVar(value=config.default_font_style)
         font_menu = ttk.Combobox(
             settings_frame,
@@ -200,11 +215,11 @@ class TextOverlayUI:
             values=list(config.font_styles),
             width=20,
         )
-        font_menu.grid(row=4, column=1, sticky=tk.W, pady=5, padx=5)
+        font_menu.grid(row=4, column=3, sticky=tk.W, pady=5, padx=5)
 
         # Font size
         ttk.Label(settings_frame, text="Font size:").grid(
-            row=4, column=2, sticky=tk.W, pady=5, padx=(20, 0)
+            row=5, column=0, sticky=tk.W, pady=5
         )
         self.font_size_spin = ttk.Spinbox(
             settings_frame,
@@ -212,33 +227,50 @@ class TextOverlayUI:
             to=config.max_font_size,
             width=10,
         )
-        self.font_size_spin.grid(row=4, column=3, sticky=tk.W, pady=5, padx=5)
+        self.font_size_spin.grid(row=5, column=1, sticky=tk.W, pady=5, padx=5)
         self.font_size_spin.set(str(config.default_font_size))
 
         # Font file
-        ttk.Label(settings_frame, text="Font file:").grid(row=5, column=0, sticky=tk.W, pady=5)
+        ttk.Label(settings_frame, text="Font file:").grid(row=6, column=0, sticky=tk.W, pady=5)
         self.font_file_label = ttk.Label(settings_frame, text="System (default)")
-        self.font_file_label.grid(row=5, column=1, columnspan=2, sticky=tk.W, pady=5, padx=5)
+        self.font_file_label.grid(row=6, column=1, columnspan=2, sticky=tk.W, pady=5, padx=5)
         ttk.Button(settings_frame, text="Select font", command=self.choose_font).grid(
-            row=5, column=3, sticky=tk.W, pady=5
+            row=6, column=3, sticky=tk.W, pady=5
         )
 
         # Output directory
         ttk.Label(settings_frame, text="Output Folder:").grid(
-            row=6, column=0, sticky=tk.W, pady=5
+            row=7, column=0, sticky=tk.W, pady=5
         )
         self.output_dir_entry = ttk.Entry(
             settings_frame, textvariable=self.output_dir_var, width=30
         )
-        self.output_dir_entry.grid(row=6, column=1, columnspan=2, sticky=(tk.W, tk.E), padx=5)
+        self.output_dir_entry.grid(row=7, column=1, columnspan=2, sticky=(tk.W, tk.E), padx=5)
         ttk.Button(settings_frame, text="Browse", command=self.browse_output_dir).grid(
-            row=6, column=3, padx=5
+            row=7, column=3, padx=5
         )
 
         # App location info
         ttk.Label(
             settings_frame, text=f"App location: {self.app_dir}", font=("Arial", 8)
-        ).grid(row=7, column=0, columnspan=4, sticky=tk.W, pady=(2, 5))
+        ).grid(row=8, column=0, columnspan=4, sticky=tk.W, pady=(2, 5))
+
+    def _system_font_families(self) -> list:
+        """Get font families installed in the system, sorted alphabetically."""
+        try:
+            return sorted(tkfont.families(root=self.root))
+        except tk.TclError as e:
+            logger.warning(f"Failed to enumerate system fonts: {e}")
+            return []
+
+    def _refresh_font_families(self) -> None:
+        """Refresh the family list each time the dropdown opens."""
+        self.font_families_menu["values"] = self._system_font_families()
+
+    def _on_font_family_selected(self, event=None) -> None:
+        """Apply the single-font rule: a family choice drops the custom file."""
+        self.font_path = None
+        self.font_file_label.config(text="System (default)")
 
     def _create_action_buttons(self, parent: ttk.Frame) -> None:
         """Create action buttons."""
@@ -310,9 +342,11 @@ class TextOverlayUI:
         except ValueError:
             offset_left = config.default_offset_left
 
-        return {
+        family = self.font_family_var.get()
+        settings = {
             "text": self.text_entry.get(),
             "color": self.color_preview.cget("bg"),
+            "font_family": None if family == "(custom file)" else family,
             "font_path": getattr(self, "font_path", None),
             "font_size": font_size,
             "font_style": self.font_style_var.get(),
@@ -320,6 +354,7 @@ class TextOverlayUI:
             "offset_up": offset_up,
             "offset_left": offset_left,
         }
+        return settings
 
     def _update_processor(self) -> None:
         """Update processor with current UI settings."""
@@ -432,6 +467,13 @@ class TextOverlayUI:
         if file_path:
             self.font_path = file_path
             self.font_file_label.config(text=os.path.basename(file_path))
+            # Single-font rule: the custom file replaces the family choice
+            custom_marker = "(custom file)"
+            values = list(self.font_families_menu["values"])
+            if custom_marker not in values:
+                values.insert(0, custom_marker)
+                self.font_families_menu["values"] = values
+            self.font_family_var.set(custom_marker)
 
     def browse_output_dir(self) -> None:
         """Browse for output directory."""
@@ -604,6 +646,7 @@ class TextOverlayUI:
         self.color_preview.config(bg=config.default_color)
         self.font_path = None
         self.font_file_label.config(text="System (default)")
+        self.font_family_var.set(config.default_font_family)
         self.position_var.set(config.default_position)
         self.font_style_var.set(config.default_font_style)
         self.font_size_spin.set(str(config.default_font_size))

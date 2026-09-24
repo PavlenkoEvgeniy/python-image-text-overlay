@@ -64,7 +64,7 @@ class TestAppConfig:
         """Test configuration default values."""
         cfg = AppConfig()
         assert cfg.name == "Image Text Overlay"
-        assert cfg.version == "1.0.2"
+        assert cfg.version == "1.0.4"
         assert cfg.default_text == "Your text"
         assert cfg.default_color == "#FFFFFF"
         assert cfg.default_font_size == 40
@@ -388,3 +388,67 @@ class TestOrientation:
         assert reloaded.size == (100, 200)
         # No orientation tag that could re-rotate the baked image
         assert reloaded.getexif().get(274) in (None, 1)
+
+# --- Font Selection Tests ---
+
+class TestFontSelection:
+    """Tests for the single-font rule and style variant probing."""
+
+    @pytest.fixture
+    def custom_font_file(self, temp_dir):
+        """Copy a real system font into the temp dir as a custom font."""
+        import glob
+        import shutil
+
+        candidates = glob.glob("/usr/share/fonts/**/*.ttf", recursive=True)
+        if not candidates:
+            pytest.skip("No system ttf fonts available")
+        font_path = os.path.join(temp_dir, "custom.ttf")
+        shutil.copy(candidates[0], font_path)
+        return font_path
+
+    def test_custom_file_takes_precedence(self, custom_font_file):
+        """Custom font file is the active font, family is ignored."""
+        p = ImageProcessor(
+            text="T", font_family="Nonexistent Family", font_path=custom_font_file
+        )
+        font = p.get_font(20)
+        assert font is not None
+        assert p._load_system_font(20) is None  # family unresolvable
+        # The loaded font comes from the custom file, not the fallback chain
+        assert font.path == custom_font_file
+
+    def test_unknown_family_falls_back(self, processor):
+        """Unknown family yields the fallback chain, never a crash."""
+        processor.font_family = "Nonexistent Family 12345"
+        processor.font_path = None
+        font = processor.get_font(20)
+        assert font is not None
+
+    def test_no_family_uses_fallback_chain(self, processor):
+        """No family set: the previous fallback chain still applies."""
+        processor.font_family = None
+        processor.font_path = None
+        assert processor.get_font(20) is not None
+
+    def test_style_variant_probed_before_plain_family(self, processor):
+        """A styled variant name is tried before the plain family name."""
+        processor.font_family = "Nonexistent Family 12345"
+        processor.font_style = "Bold"
+        # Must not raise; falls back to the chain
+        assert processor.get_font(20) is not None
+
+    def test_from_dict_roundtrip_font_family(self):
+        """font_family survives the settings dict roundtrip."""
+        settings = {"font_family": "Arial", "font_path": None, "font_style": "Italic"}
+        p = ImageProcessor.from_dict(settings)
+        assert p.font_family == "Arial"
+        assert p.font_style == "Italic"
+        assert p.to_dict()["font_family"] == "Arial"
+
+    def test_custom_file_not_lost_on_family_reset(self, custom_font_file):
+        """get_font keeps working when the custom file is set but family cleared."""
+        p = ImageProcessor(
+            text="T", font_family=None, font_path=custom_font_file
+        )
+        assert p.get_font(20) is not None
