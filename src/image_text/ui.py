@@ -612,15 +612,27 @@ class TextOverlayUI:
             os.path.join(self.app_dir, config.default_output_dir)
         )
 
+    def _center_window(self, window: tk.Toplevel, width: int, height: int) -> None:
+        """Position a Toplevel window centered over the main window.
+
+        Args:
+            window: Window to position.
+            width: Window width in pixels.
+            height: Window height in pixels.
+        """
+        x = self.root.winfo_rootx() + (self.root.winfo_width() - width) // 2
+        y = self.root.winfo_rooty() + (self.root.winfo_height() - height) // 2
+        window.geometry(f"{width}x{height}+{x}+{y}")
+
     def show_about(self) -> None:
         """Show about dialog."""
         about_window = tk.Toplevel(self.root)
         about_window.title("About")
-        about_window.geometry("550x450")
         about_window.resizable(False, False)
 
         about_window.transient(self.root)
         about_window.grab_set()
+        self._center_window(about_window, 550, 450)
 
         main_frame = ttk.Frame(about_window, padding="30")
         main_frame.pack(fill=tk.BOTH, expand=True)
