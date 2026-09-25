@@ -11,6 +11,7 @@ from PIL import Image, ImageTk
 
 from .config import config
 from .processor import ImageProcessor, load_image
+from .settings_store import clear_settings, load_settings, save_settings
 from .logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -46,6 +47,7 @@ class TextOverlayUI:
         self.rename_files = tk.BooleanVar(value=False)
         self.font_path: Optional[str] = None
         self._preview_after_id: Optional[str] = None
+        self._save_after_id: Optional[str] = None
 
         # Get application directory
         self.app_dir = self._get_app_dir()
@@ -61,6 +63,14 @@ class TextOverlayUI:
         # Create UI
         self._create_menu()
         self._create_widgets()
+
+        # Restore Saved settings, then start autosaving future changes
+        self._apply_saved_settings(load_settings())
+        self._cancel_scheduled_settings_save()
+        self._bind_settings_autosave()
+
+        # Flush pending settings and clean up on window close
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
         # Setup drag and drop
         if HAS_DND:
@@ -88,7 +98,9 @@ class TextOverlayUI:
         file_menu.add_command(label="Select Images", command=self.load_images)
         file_menu.add_command(label="Clear List", command=self.clear_images)
         file_menu.add_separator()
-        file_menu.add_command(label="Exit", command=self.root.quit)
+        file_menu.add_command(label="Reset Settings", command=self.reset_settings)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self._on_close)
 
         # Help menu
         help_menu = tk.Menu(menubar, tearoff=0)
@@ -274,7 +286,7 @@ class TextOverlayUI:
         """Apply the single-font rule: a family choice drops the custom file."""
         self.font_path = None
         self.font_file_label.config(text="System (default)")
-        self._schedule_preview()
+        self._on_setting_changed()
 
     def _create_action_buttons(self, parent: ttk.Frame) -> None:
         """Create action buttons."""
@@ -458,7 +470,7 @@ class TextOverlayUI:
         color = colorchooser.askcolor(title="Select text color")
         if color[0]:
             self.color_preview.config(bg=color[1])
-            self._schedule_preview()
+            self._on_setting_changed()
 
     def choose_font(self) -> None:
         """Open font file dialog."""
@@ -469,7 +481,7 @@ class TextOverlayUI:
         if file_path:
             self.font_path = file_path
             self.font_file_label.config(text=os.path.basename(file_path))
-            self._schedule_preview()
+            self._on_setting_changed()
 
     def browse_output_dir(self) -> None:
         """Browse for output directory."""
@@ -483,14 +495,19 @@ class TextOverlayUI:
 
     def _bind_live_updates(self) -> None:
         """Bind settings widgets to the debounced live preview refresh."""
-        self.text_entry.bind("<KeyRelease>", self._schedule_preview)
-        self.offset_up.bind("<KeyRelease>", self._schedule_preview)
-        self.offset_left.bind("<KeyRelease>", self._schedule_preview)
-        self.font_size_spin.bind("<KeyRelease>", self._schedule_preview)
-        self.font_size_spin.configure(command=self._schedule_preview)
-        self.position_var.trace_add("write", self._schedule_preview)
-        self.font_style_var.trace_add("write", self._schedule_preview)
-        self.font_family_var.trace_add("write", self._schedule_preview)
+        self.text_entry.bind("<KeyRelease>", self._on_setting_changed)
+        self.offset_up.bind("<KeyRelease>", self._on_setting_changed)
+        self.offset_left.bind("<KeyRelease>", self._on_setting_changed)
+        self.font_size_spin.bind("<KeyRelease>", self._on_setting_changed)
+        self.font_size_spin.configure(command=self._on_setting_changed)
+        self.position_var.trace_add("write", self._on_setting_changed)
+        self.font_style_var.trace_add("write", self._on_setting_changed)
+        self.font_family_var.trace_add("write", self._on_setting_changed)
+
+    def _on_setting_changed(self, *_args) -> None:
+        """React to a settings change: refresh the preview and autosave."""
+        self._schedule_preview(*_args)
+        self._schedule_settings_save(*_args)
 
     def _schedule_preview(self, *_args) -> None:
         """Schedule a debounced preview refresh after a settings change."""
@@ -525,6 +542,96 @@ class TextOverlayUI:
         if result is not None:
             self.preview_image = result
             self.show_preview(result)
+
+    # --- Saved settings ---
+
+    def _schedule_settings_save(self, *_args) -> None:
+        """Schedule a debounced autosave of the Saved settings."""
+        if self._save_after_id is not None:
+            try:
+                self.root.after_cancel(self._save_after_id)
+            except Exception:
+                pass
+        self._save_after_id = self.root.after(
+            config.settings_save_debounce_ms, self._save_settings_now
+        )
+
+    def _cancel_scheduled_settings_save(self) -> None:
+        """Cancel a pending settings autosave, if any."""
+        if self._save_after_id is not None:
+            try:
+                self.root.after_cancel(self._save_after_id)
+            except Exception:
+                pass
+            self._save_after_id = None
+
+    def _save_settings_now(self) -> None:
+        """Write the Saved settings to the Settings file immediately."""
+        self._save_after_id = None
+        save_settings(self._get_saved_settings_snapshot())
+
+    def _get_saved_settings_snapshot(self) -> dict:
+        """Snapshot the Saved settings: styling fields plus output folder and overwrite flag."""
+        snapshot = self._get_current_settings()
+        snapshot["output_dir"] = self.output_dir_var.get().strip()
+        snapshot["overwrite"] = bool(self.rename_files.get())
+        return snapshot
+
+    def _apply_saved_settings(self, saved: Optional[dict]) -> None:
+        """Apply loaded Saved settings to the widgets; do nothing when None.
+
+        Args:
+            saved: Validated settings from the Settings file, or None.
+        """
+        if not saved:
+            return
+
+        self.text_entry.delete(0, tk.END)
+        self.text_entry.insert(0, saved["text"])
+        self.color_preview.config(bg=saved["color"])
+        self.offset_up.delete(0, tk.END)
+        self.offset_up.insert(0, str(saved["offset_up"]))
+        self.offset_left.delete(0, tk.END)
+        self.offset_left.insert(0, str(saved["offset_left"]))
+        self.font_size_spin.set(str(saved["font_size"]))
+        self.position_var.set(saved["position"])
+        self.font_style_var.set(saved["font_style"])
+
+        if saved.get("font_path"):
+            self.font_path = saved["font_path"]
+            self.font_file_label.config(text=os.path.basename(saved["font_path"]))
+            self.font_family_var.set("(custom file)")
+        else:
+            self.font_path = None
+            self.font_file_label.config(text="System (default)")
+            self.font_family_var.set(
+                saved["font_family"] or config.default_font_family
+            )
+
+        self.output_dir_var.set(saved["output_dir"])
+        self.rename_files.set(saved["overwrite"])
+
+    def _bind_settings_autosave(self) -> None:
+        """Autosave the Saved settings when the output folder or overwrite flag changes."""
+        self.output_dir_var.trace_add("write", self._schedule_settings_save)
+        self.rename_files.trace_add("write", self._schedule_settings_save)
+
+    def reset_settings(self) -> None:
+        """Return the Saved settings to their defaults after confirmation."""
+        if not messagebox.askyesno(
+            "Reset Settings",
+            "Return all settings to their defaults?\n\n"
+            "The saved settings file will be removed.",
+        ):
+            return
+        clear_settings()
+        self._reset_settings_widgets()
+
+    def _on_close(self) -> None:
+        """Flush pending settings autosave and close the window."""
+        self._cancel_scheduled_preview()
+        self._save_settings_now()
+        self.root.destroy()
 
     def apply_to_all(self) -> None:
         """Apply text to all loaded images."""
@@ -670,11 +777,8 @@ class TextOverlayUI:
             output_dir = os.path.dirname(output_paths[0]) if output_paths else ""
             messagebox.showinfo("Success", f"Saved {saved} images to:\n{output_dir}")
 
-    def clear_all(self) -> None:
-        """Clear all data and reset UI."""
-        self._cancel_scheduled_preview()
-        self.clear_images()
-
+    def _reset_settings_widgets(self) -> None:
+        """Reset the settings widgets to their defaults."""
         self.text_entry.delete(0, tk.END)
         self.text_entry.insert(0, config.default_text)
         self.offset_up.delete(0, tk.END)
@@ -692,6 +796,12 @@ class TextOverlayUI:
         self.output_dir_var.set(
             os.path.join(self.app_dir, config.default_output_dir)
         )
+
+    def clear_all(self) -> None:
+        """Clear all data and reset UI."""
+        self._cancel_scheduled_preview()
+        self.clear_images()
+        self._reset_settings_widgets()
 
     def _center_window(self, window: tk.Toplevel, width: int, height: int) -> None:
         """Position a Toplevel window centered over the main window.

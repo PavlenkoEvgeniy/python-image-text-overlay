@@ -36,3 +36,23 @@ _Avoid_: current image, source picture
 **Processed image**:
 An image with the text overlay already applied, kept in memory for batch saving.
 _Avoid_: preview image (reserved for what the preview area displays)
+
+### Persistence
+
+**Saved settings**:
+The user's preferences persisted between sessions: text content and styling, positioning, Font file, output folder and the overwrite flag.
+The loaded image path and window geometry are deliberately not part of Saved settings.
+_Avoid_: app state, session state, user preferences
+
+**Settings file**:
+The document in the user's platform config directory that holds the Saved settings between sessions.
+_Avoid_: config file, session file
+
+**Field fallback**:
+The rule that a saved value failing validation is replaced by its default while the remaining Saved settings load as-is.
+A corrupt Settings file as a whole falls back entirely to defaults, silently.
+_Avoid_: soft validation, graceful degradation
+
+**Reset settings**:
+Returning the Saved settings to their defaults in both the interface and the Settings file, after user confirmation.
+_Avoid_: clear all (that empties the working images too), restore factory defaults
