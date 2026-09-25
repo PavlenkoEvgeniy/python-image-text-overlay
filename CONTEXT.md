@@ -1,31 +1,32 @@
-# Image Text
+# Image Text Overlay
 
-GUI-инструмент для наложения текстового водяного знака на изображения.
+Desktop tool for overlaying text on images before saving. This context covers the
+vocabulary of text styling, previewing and saving.
 
 ## Language
 
-### Ориентация
+### Text styling
 
-**Визуальная ориентация**:
-Ориентация, в которой картинку показывает вьюер — та, которую видит пользователь.
-_Avoid_: ориентация вьюера, display orientation
+**Font file**:
+A user-selected `.ttf`/`.otf` file that supplies the glyph shapes.
+_Avoid_: custom font, font (alone — ambiguous with Font style)
 
-**Сырое хранилище**:
-Фактическое расположение пикселей в файле, независимо от того, как его показывает вьюер.
-_Avoid_: raw pixels, физический размер
+**Font style**:
+The visual variant (Normal, Bold, Italic, Bold Italic) applied on top of the Font file.
+A Font style must always visibly affect both preview and saved output.
+_Avoid_: font type, font family
 
-**Правило визуальной ориентации**:
-Обработка изображения всегда ведётся в визуальной ориентации: и наложение текста, и отступы считаются от того, что видит пользователь, а не от того, как пиксели лежат в файле.
+### Preview and saving
 
-## Шрифты
+**Live preview**:
+The preview area that always reflects the current settings, re-rendered automatically
+after any change and immediately after loading an image.
+_Avoid_: auto preview
 
-**Системный шрифт**:
-Шрифт, установленный в операционной системе; выбирается по имени семейства из списка, который показывает сама система.
-_Avoid_: встроенный шрифт, font из системы
+**Original image**:
+The currently loaded, unmodified source image the text is overlaid on.
+_Avoid_: current image, source picture
 
-**Кастомный шрифт**:
-Файл шрифта (`ttf`/`otf`), выбранный пользователем напрямую, вне системного списка.
-_Avoid_: пользовательский шрифт, загруженный шрифт
-
-**Правило одного шрифта**:
-В любой момент времени активен ровно один шрифт — либо системный по семейству, либо кастомный файл; выбор одного сбрасывает другой.
+**Processed image**:
+An image with the text overlay already applied, kept in memory for batch saving.
+_Avoid_: preview image (reserved for what the preview area displays)

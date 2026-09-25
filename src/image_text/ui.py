@@ -44,6 +44,8 @@ class TextOverlayUI:
         self.preview_image: Optional[Image.Image] = None
         self.processed_images: list[Image.Image] = []
         self.rename_files = tk.BooleanVar(value=False)
+        self.font_path: Optional[str] = None
+        self._preview_after_id: Optional[str] = None
 
         # Get application directory
         self.app_dir = self._get_app_dir()
@@ -103,6 +105,7 @@ class TextOverlayUI:
         self._create_settings_section(main_frame)
         self._create_action_buttons(main_frame)
         self._create_preview_section(main_frame)
+        self._bind_live_updates()
 
     def _create_load_section(self, parent: ttk.Frame) -> None:
         """Create image loading section."""
@@ -280,9 +283,6 @@ class TextOverlayUI:
         ttk.Button(action_frame, text="Apply to All", command=self.apply_to_all).pack(
             side=tk.LEFT, padx=5
         )
-        ttk.Button(action_frame, text="Preview", command=self.preview_text).pack(
-            side=tk.LEFT, padx=5
-        )
         ttk.Button(action_frame, text="Save Current", command=self.save_current_image).pack(
             side=tk.LEFT, padx=5
         )
@@ -408,7 +408,7 @@ class TextOverlayUI:
                 image_path = self.image_paths[self.current_index]
                 self.original_image = load_image(image_path)
                 self.filename_label.config(text=os.path.basename(image_path))
-                self.show_preview()
+                self._refresh_preview()
                 self.update_counter()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to load image: {str(e)}")
@@ -457,6 +457,7 @@ class TextOverlayUI:
         color = colorchooser.askcolor(title="Select text color")
         if color[0]:
             self.color_preview.config(bg=color[1])
+            self._schedule_preview()
 
     def choose_font(self) -> None:
         """Open font file dialog."""
@@ -467,13 +468,7 @@ class TextOverlayUI:
         if file_path:
             self.font_path = file_path
             self.font_file_label.config(text=os.path.basename(file_path))
-            # Single-font rule: the custom file replaces the family choice
-            custom_marker = "(custom file)"
-            values = list(self.font_families_menu["values"])
-            if custom_marker not in values:
-                values.insert(0, custom_marker)
-                self.font_families_menu["values"] = values
-            self.font_family_var.set(custom_marker)
+            self._schedule_preview()
 
     def browse_output_dir(self) -> None:
         """Browse for output directory."""
@@ -483,16 +478,49 @@ class TextOverlayUI:
         if folder:
             self.output_dir_var.set(folder)
 
-    def preview_text(self) -> None:
-        """Preview text overlay on current image."""
+    # --- Live Preview ---
+
+    def _bind_live_updates(self) -> None:
+        """Bind settings widgets to the debounced live preview refresh."""
+        self.text_entry.bind("<KeyRelease>", self._schedule_preview)
+        self.offset_up.bind("<KeyRelease>", self._schedule_preview)
+        self.offset_left.bind("<KeyRelease>", self._schedule_preview)
+        self.font_size_spin.bind("<KeyRelease>", self._schedule_preview)
+        self.font_size_spin.configure(command=self._schedule_preview)
+        self.position_var.trace_add("write", self._schedule_preview)
+        self.font_style_var.trace_add("write", self._schedule_preview)
+
+    def _schedule_preview(self, *_args) -> None:
+        """Schedule a debounced preview refresh after a settings change."""
+        if self._preview_after_id is not None:
+            try:
+                self.root.after_cancel(self._preview_after_id)
+            except Exception:
+                pass
+        self._preview_after_id = self.root.after(
+            config.preview_debounce_ms, self._refresh_preview
+        )
+
+    def _cancel_scheduled_preview(self) -> None:
+        """Cancel a pending debounced preview refresh, if any."""
+        if self._preview_after_id is not None:
+            try:
+                self.root.after_cancel(self._preview_after_id)
+            except Exception:
+                pass
+            self._preview_after_id = None
+
+    def _refresh_preview(self) -> None:
+        """Re-render the preview from the current settings."""
+        self._preview_after_id = None
+
         if self.original_image is None:
-            messagebox.showwarning("Error", "Please load an image!")
             return
 
         self._update_processor()
         result = self.processor.apply_text(self.original_image)
 
-        if result:
+        if result is not None:
             self.preview_image = result
             self.show_preview(result)
 
@@ -567,9 +595,16 @@ class TextOverlayUI:
         return self.processor.get_output_path(original_path, output_dir)
 
     def save_current_image(self) -> None:
-        """Save current preview image."""
-        if self.preview_image is None:
-            messagebox.showwarning("Error", "Please preview first!")
+        """Apply current settings and save the current image."""
+        if self.original_image is None:
+            messagebox.showwarning("Error", "Please load an image!")
+            return
+
+        self._update_processor()
+        result = self.processor.apply_text(self.original_image)
+
+        if result is None:
+            messagebox.showwarning("Error", "Please enter text!")
             return
 
         original_path = self.image_paths[self.current_index]
@@ -584,12 +619,12 @@ class TextOverlayUI:
                 ):
                     return
 
-            self.preview_image.save(file_path)
+            result.save(file_path)
             messagebox.showinfo("Success", f"Image overwritten: {file_path}")
         else:
             # Save to output folder
             output_path = self.get_output_path(original_path)
-            self.preview_image.save(output_path)
+            result.save(output_path)
             messagebox.showinfo("Success", f"Image saved:\n{output_path}")
 
     def save_all_images(self) -> None:
@@ -635,6 +670,7 @@ class TextOverlayUI:
 
     def clear_all(self) -> None:
         """Clear all data and reset UI."""
+        self._cancel_scheduled_preview()
         self.clear_images()
 
         self.text_entry.delete(0, tk.END)

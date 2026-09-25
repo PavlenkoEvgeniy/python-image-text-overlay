@@ -5,7 +5,7 @@ import tempfile
 from unittest.mock import MagicMock, patch, PropertyMock
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageFont
 
 from image_text.config import AppConfig, config
 from image_text.processor import ImageProcessor, load_image
@@ -64,7 +64,7 @@ class TestAppConfig:
         """Test configuration default values."""
         cfg = AppConfig()
         assert cfg.name == "Image Text Overlay"
-        assert cfg.version == "1.0.4"
+        assert cfg.version == "1.0.5"
         assert cfg.default_text == "Your text"
         assert cfg.default_color == "#FFFFFF"
         assert cfg.default_font_size == 40
@@ -281,6 +281,99 @@ class TestImageProcessor:
         processor.font_style = "Bold Italic"
         font = processor.get_font(20)
         assert font is not None
+
+
+# --- Font Style Rendering Tests ---
+
+class TestFontStyleRendering:
+    """Tests that font styles actually change the rendered output (issue #3)."""
+
+    @staticmethod
+    def _render(font_style: str, **kwargs) -> Image.Image:
+        """Render 'Test' text on a black image with the given style."""
+        processor = ImageProcessor(
+            text="Test Text",
+            color="#FFFFFF",
+            font_size=30,
+            font_style=font_style,
+            position="top left",
+            offset_up=5,
+            offset_left=5,
+            **kwargs,
+        )
+        img = Image.new("RGB", (300, 100), color="black")
+        return processor.apply_text(img)
+
+    def test_bold_differs_from_normal(self):
+        """Test bold style changes rendered pixels."""
+        normal = self._render("Normal")
+        bold = self._render("Bold")
+        assert normal.tobytes() != bold.tobytes()
+
+    def test_italic_differs_from_normal(self):
+        """Test italic style changes rendered pixels."""
+        normal = self._render("Normal")
+        italic = self._render("Italic")
+        assert normal.tobytes() != italic.tobytes()
+
+    def test_bold_italic_differs_from_bold(self):
+        """Test bold italic style differs from bold only."""
+        bold = self._render("Bold")
+        bold_italic = self._render("Bold Italic")
+        assert bold.tobytes() != bold_italic.tobytes()
+
+    def test_bold_italic_differs_from_italic(self):
+        """Test bold italic style differs from italic only."""
+        italic = self._render("Italic")
+        bold_italic = self._render("Bold Italic")
+        assert italic.tobytes() != bold_italic.tobytes()
+
+    def test_style_with_custom_font(self, temp_dir):
+        """Test styles apply when a custom font file is used."""
+        font_path = None
+        for candidate in config.system_fonts:
+            try:
+                ImageFont.truetype(candidate, 20)
+                # Resolve real path for fontconfig aliases like "arial.ttf"
+                from PIL import ImageFont as _F
+                font_path = _F.truetype(candidate, 20).path
+                break
+            except Exception:
+                continue
+
+        if font_path is None:
+            pytest.skip("No system font available for custom font test")
+
+        normal = self._render("Normal", font_path=font_path)
+        bold = self._render("Bold", font_path=font_path)
+        italic = self._render("Italic", font_path=font_path)
+        assert normal.tobytes() != bold.tobytes()
+        assert normal.tobytes() != italic.tobytes()
+
+    def test_get_style_flags(self):
+        """Test style flag extraction."""
+        p = ImageProcessor()
+        p.font_style = "Bold"
+        assert p._get_style_flags() == (True, False)
+        p.font_style = "Italic"
+        assert p._get_style_flags() == (False, True)
+        p.font_style = "Bold Italic"
+        assert p._get_style_flags() == (True, True)
+        p.font_style = "Normal"
+        assert p._get_style_flags() == (False, False)
+
+    def test_get_stroke_width(self):
+        """Test stroke width for bold synthesis."""
+        p = ImageProcessor()
+        assert p._get_stroke_width(30, bold=False) == 0
+        assert p._get_stroke_width(30, bold=True) >= 1
+        assert p._get_stroke_width(200, bold=True) > p._get_stroke_width(30, bold=True)
+
+    def test_all_styles_render_on_small_image(self):
+        """Test all styles render without error on a small image."""
+        for style in config.font_styles:
+            result = self._render(style)
+            assert result is not None, f"Failed for style: {style}"
 
 
 # --- Integration Tests ---
