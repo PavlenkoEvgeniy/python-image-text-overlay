@@ -12,6 +12,7 @@ A powerful desktop application for adding text overlays to images with batch pro
 - 💾 **Flexible Saving Options** - Save to a separate folder or overwrite original files
 - 🔤 **Font Selection** - Use system fonts or load custom `.ttf` and `.otf` files
 - 🧭 **User-Friendly Interface** - Intuitive design with clear navigation
+- 💽 **Settings Persistence** - All settings are saved automatically and restored on the next launch (File → Reset Settings returns to defaults)
 
 ## 🖼️ Preview
 

@@ -268,7 +268,7 @@ class TestFontFamilyLivePreview:
     """Tests that choosing a font family refreshes the live preview."""
 
     def test_family_selection_schedules_preview(self):
-        """_on_font_family_selected triggers the debounced preview refresh."""
+        """_on_font_family_selected triggers the change handler (preview + autosave)."""
         from unittest.mock import MagicMock
 
         from image_text.ui import TextOverlayUI
@@ -276,10 +276,10 @@ class TestFontFamilyLivePreview:
         ui = TextOverlayUI.__new__(TextOverlayUI)
         ui.font_path = None
         ui.font_file_label = MagicMock()
-        ui._schedule_preview = MagicMock()
+        ui._on_setting_changed = MagicMock()
 
         ui._on_font_family_selected()
 
         assert ui.font_path is None
         ui.font_file_label.config.assert_called_once_with(text="System (default)")
-        ui._schedule_preview.assert_called_once()
+        ui._on_setting_changed.assert_called_once()

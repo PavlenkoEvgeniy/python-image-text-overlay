@@ -43,6 +43,9 @@ class AppConfig:
     # Live preview debounce delay in milliseconds
     preview_debounce_ms: int = 300
 
+    # Settings autosave debounce delay in milliseconds
+    settings_save_debounce_ms: int = 300
+
     # Fallback system fonts
     system_fonts: Tuple[str, ...] = (
         "arial.ttf",
