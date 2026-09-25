@@ -274,6 +274,7 @@ class TextOverlayUI:
         """Apply the single-font rule: a family choice drops the custom file."""
         self.font_path = None
         self.font_file_label.config(text="System (default)")
+        self._schedule_preview()
 
     def _create_action_buttons(self, parent: ttk.Frame) -> None:
         """Create action buttons."""
@@ -489,6 +490,7 @@ class TextOverlayUI:
         self.font_size_spin.configure(command=self._schedule_preview)
         self.position_var.trace_add("write", self._schedule_preview)
         self.font_style_var.trace_add("write", self._schedule_preview)
+        self.font_family_var.trace_add("write", self._schedule_preview)
 
     def _schedule_preview(self, *_args) -> None:
         """Schedule a debounced preview refresh after a settings change."""
