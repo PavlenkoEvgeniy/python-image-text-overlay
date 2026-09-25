@@ -64,7 +64,7 @@ class TestAppConfig:
         """Test configuration default values."""
         cfg = AppConfig()
         assert cfg.name == "Image Text Overlay"
-        assert cfg.version == "1.0.7"
+        assert cfg.version == "1.0.8"
         assert cfg.default_text == "Your text"
         assert cfg.default_color == "#FFFFFF"
         assert cfg.default_font_size == 40
