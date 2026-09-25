@@ -100,6 +100,100 @@ class ImageProcessor:
         "Bold Italic": " Bold Italic",
     }
 
+    # Style names as fontconfig reports them
+    FC_STYLE_NAMES = {
+        "Normal": "Regular",
+        "Bold": "Bold",
+        "Italic": "Italic",
+        "Bold Italic": "Bold Italic",
+    }
+
+    def _load_system_font(self, size: int) -> Optional[FontType]:
+        """Load a system font by the selected family name.
+
+        The styled variant of the family (e.g. "DejaVu Sans Bold") is probed
+        before the plain family name. Family names are resolved to font files
+        via fontconfig, falling back to direct TrueType name lookups.
+
+        Args:
+            size: Font size in pixels.
+
+        Returns:
+            ImageFont object, or None when the family is not set or cannot
+            be resolved (the fallback chain then applies).
+        """
+        family = (self.font_family or "").strip()
+        if not family:
+            return None
+
+        style = (self.font_style or "").strip()
+        suffix = self.STYLE_SUFFIXES.get(style, "")
+
+        # Try the styled variant name before the plain family name
+        for name in ([family + suffix] if suffix else []) + [family]:
+            try:
+                font = ImageFont.truetype(name, size)
+                logger.debug(f"Loaded system font: {name}")
+                return font
+            except Exception:
+                continue
+
+        fc_style = self.FC_STYLE_NAMES.get(style, "Regular")
+        for path in self._fontconfig_candidates(family, fc_style):
+            try:
+                font = ImageFont.truetype(path, size)
+                logger.debug(f"Loaded system font: {path}")
+                return font
+            except Exception:
+                continue
+
+        logger.debug(f"Could not resolve system font family: {family}")
+        return None
+
+    @staticmethod
+    def _fontconfig_candidates(family: str, fc_style: str) -> list:
+        """Query fontconfig for font files of a family, best style first.
+
+        Args:
+            family: Font family name.
+            fc_style: Requested style in fontconfig terms (e.g. "Bold").
+
+        Returns:
+            List of file paths matching the family, with files carrying the
+            requested style first, then Regular, then the rest.
+        """
+        import subprocess
+
+        try:
+            result = subprocess.run(
+                ["fc-list", f":family={family}"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except Exception as e:
+            logger.debug(f"fontconfig query failed for {family}: {e}")
+            return []
+
+        exact, regular, others = [], [], []
+        for line in result.stdout.splitlines():
+            path, _, meta = line.partition(":")
+            path = path.strip()
+            if not path or not os.path.exists(path):
+                continue
+            styles = (
+                [s.strip().lower() for s in meta.split("style=")[-1].split(",")]
+                if "style=" in meta
+                else []
+            )
+            if fc_style.lower() in styles:
+                exact.append(path)
+            elif "regular" in styles:
+                regular.append(path)
+            else:
+                others.append(path)
+        return exact + regular + others
+
     def get_font(self, size: int) -> FontType:
         """Get PIL ImageFont honoring the single-font rule.
 
