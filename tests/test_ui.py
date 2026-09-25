@@ -21,7 +21,7 @@ class TestUIConfiguration:
         from image_text.config import config
 
         assert config.name == "Image Text Overlay"
-        assert config.version == "1.0.5"
+        assert config.version == "1.0.7"
         assert config.window_width == 950
         assert config.window_height == 750
         assert config.default_font_size == 40
@@ -261,3 +261,25 @@ class TestTextColors:
 
 # Import Image for tests
 from PIL import Image
+
+# --- Font Family Live Preview Tests (issue #6) ---
+
+class TestFontFamilyLivePreview:
+    """Tests that choosing a font family refreshes the live preview."""
+
+    def test_family_selection_schedules_preview(self):
+        """_on_font_family_selected triggers the debounced preview refresh."""
+        from unittest.mock import MagicMock
+
+        from image_text.ui import TextOverlayUI
+
+        ui = TextOverlayUI.__new__(TextOverlayUI)
+        ui.font_path = None
+        ui.font_file_label = MagicMock()
+        ui._schedule_preview = MagicMock()
+
+        ui._on_font_family_selected()
+
+        assert ui.font_path is None
+        ui.font_file_label.config.assert_called_once_with(text="System (default)")
+        ui._schedule_preview.assert_called_once()

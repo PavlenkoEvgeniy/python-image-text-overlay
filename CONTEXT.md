@@ -16,6 +16,12 @@ The visual variant (Normal, Bold, Italic, Bold Italic) applied on top of the Fon
 A Font style must always visibly affect both preview and saved output.
 _Avoid_: font type, font family
 
+**Glyph coverage**:
+The requirement that the active font contains visible glyphs for the text being
+overlaid. A font that renders no visible glyphs is rejected in favor of the next
+font in the fallback chain.
+_Avoid_: font support, missing symbols
+
 ### Preview and saving
 
 **Live preview**:

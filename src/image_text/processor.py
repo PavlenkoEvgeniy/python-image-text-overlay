@@ -194,6 +194,46 @@ class ImageProcessor:
                 others.append(path)
         return exact + regular + others
 
+    def _font_candidates(self, size: int):
+        """Yield loadable font candidates in priority order.
+
+        The single-font rule orders the chain: a custom font file first,
+        then the selected system family, then the fallback system fonts,
+        and finally the default PIL font.
+
+        Args:
+            size: Font size in pixels.
+
+        Yields:
+            Loadable ImageFont objects.
+        """
+        # Custom font first
+        if self.font_path and os.path.exists(self.font_path):
+            try:
+                font = ImageFont.truetype(self.font_path, size)
+                logger.debug(f"Loaded custom font: {self.font_path}")
+                yield font
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load custom font {self.font_path}: {e}. Using fallback."
+                )
+
+        # System font selected by family name
+        font = self._load_system_font(size)
+        if font is not None:
+            yield font
+
+        # Fallback system fonts
+        for font_name in config.system_fonts:
+            try:
+                yield ImageFont.truetype(font_name, size)
+            except Exception:
+                continue
+
+        # Fallback to default font
+        logger.info("Using default PIL font")
+        yield ImageFont.load_default()
+
     def get_font(self, size: int) -> FontType:
         """Get PIL ImageFont honoring the single-font rule.
 
@@ -207,32 +247,70 @@ class ImageProcessor:
         Returns:
             ImageFont object.
         """
-        # Try custom font first
-        if self.font_path and os.path.exists(self.font_path):
-            try:
-                font = ImageFont.truetype(self.font_path, size)
-                logger.debug(f"Loaded custom font: {self.font_path}")
-                return font
-            except Exception as e:
-                logger.warning(f"Failed to load custom font {self.font_path}: {e}. Using fallback.")
-
-        # System font selected by family name
-        font = self._load_system_font(size)
-        if font is not None:
+        for font in self._font_candidates(size):
             return font
-
-        # Fallback system fonts
-        for font_name in config.system_fonts:
-            try:
-                font = ImageFont.truetype(font_name, size)
-                logger.debug(f"Loaded system font: {font_name}")
-                return font
-            except Exception:
-                continue
-
-        # Fallback to default font
-        logger.info("Using default PIL font")
+        # Unreachable: the candidate chain always ends with the default font
         return ImageFont.load_default()
+
+    def get_font_for_text(self, size: int, text: str) -> FontType:
+        """Get a PIL ImageFont that actually renders the given text.
+
+        Candidates are tried in priority order (see get_font). A font that
+        loads but draws no visible glyphs for the text — its glyph set may
+        not cover it, rendering everything as blank — is skipped with a
+        warning in favor of the next candidate. When even the final default
+        font renders nothing, it is still returned.
+
+        Args:
+            size: Font size in pixels.
+            text: Text the font must be able to draw.
+
+        Returns:
+            ImageFont object.
+        """
+        last: Optional[FontType] = None
+        for font in self._font_candidates(size):
+            last = font
+            if self._renders_text(font, text):
+                return font
+            source = getattr(font, "path", "default PIL font")
+            logger.warning(f"Font {source} lacks glyphs for the text; trying next")
+        return last if last is not None else ImageFont.load_default()
+
+    @staticmethod
+    def _renders_text(font: FontType, text: str) -> bool:
+        """Check the font draws at least one visible pixel for the text.
+
+        A font can load cleanly and still have no glyphs for the text, so
+        every character falls back to a blank .notdef glyph and the overlay
+        disappears. Whitespace-only text renders nothing with any font and
+        is always considered renderable.
+
+        Args:
+            font: Font to probe.
+            text: Text to draw.
+
+        Returns:
+            True when at least one pixel is drawn.
+        """
+        if not text.strip():
+            return True
+
+        try:
+            left, top, right, bottom = font.getbbox(text)
+        except Exception:
+            # Cannot measure the text: assume the font renders it
+            return True
+
+        layer = Image.new(
+            "RGBA",
+            (max(1, right - left + 4), max(1, bottom - top + 4)),
+            (0, 0, 0, 0),
+        )
+        draw = ImageDraw.Draw(layer)
+        draw.text((2 - left, 2 - top), text, fill=(255, 255, 255, 255), font=font)
+        _, max_alpha = layer.getchannel("A").getextrema()
+        return max_alpha > 0
 
     def _get_style_flags(self) -> Tuple[bool, bool]:
         """Get (bold, italic) flags from the font style setting.
@@ -348,7 +426,7 @@ class ImageProcessor:
         img = image.copy()
         draw = ImageDraw.Draw(img)
 
-        font = self.get_font(self.font_size)
+        font = self.get_font_for_text(self.font_size, self.text)
         bold, italic = self._get_style_flags()
         stroke_width = self._get_stroke_width(self.font_size, bold)
 

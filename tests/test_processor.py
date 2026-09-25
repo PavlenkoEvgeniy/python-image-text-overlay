@@ -64,7 +64,7 @@ class TestAppConfig:
         """Test configuration default values."""
         cfg = AppConfig()
         assert cfg.name == "Image Text Overlay"
-        assert cfg.version == "1.0.5"
+        assert cfg.version == "1.0.7"
         assert cfg.default_text == "Your text"
         assert cfg.default_color == "#FFFFFF"
         assert cfg.default_font_size == 40
@@ -545,3 +545,96 @@ class TestFontSelection:
             text="T", font_family=None, font_path=custom_font_file
         )
         assert p.get_font(20) is not None
+
+
+# --- Glyph Coverage Tests (issue #6) ---
+
+class TestGlyphCoverage:
+    """Tests that a font with no glyphs for the text never blanks the overlay."""
+
+    @pytest.fixture
+    def custom_font_file(self, temp_dir):
+        """Copy a real system font into the temp dir as a custom font."""
+        import glob
+        import shutil
+
+        candidates = glob.glob("/usr/share/fonts/**/*.ttf", recursive=True)
+        if not candidates:
+            pytest.skip("No system ttf fonts available")
+        font_path = os.path.join(temp_dir, "custom.ttf")
+        shutil.copy(candidates[0], font_path)
+        return font_path
+
+    @pytest.fixture
+    def glyphless_font_file(self, temp_dir):
+        """Find a system font that loads but renders nothing for Latin text.
+
+        Some system fonts (e.g. Noto Sans Yi, symbol fonts) have a blank
+        .notdef glyph: the file loads cleanly, yet drawing text with it
+        produces no visible pixels. Skipped when the system has none.
+        """
+        import glob
+
+        from image_text.processor import ImageProcessor as P
+
+        for candidate in sorted(glob.glob("/usr/share/fonts/**/*.*tf", recursive=True)):
+            try:
+                font = ImageFont.truetype(candidate, 20)
+            except Exception:
+                continue
+            try:
+                if not P._renders_text(font, "Test Text"):
+                    return candidate
+            except Exception:
+                continue
+        pytest.skip("No glyphless system font available")
+
+    def test_renders_text_positive(self, processor):
+        """A normal font renders the text."""
+        font = processor.get_font(20)
+        assert ImageProcessor._renders_text(font, "Test Text") is True
+
+    def test_renders_text_whitespace(self):
+        """Whitespace-only text is always considered renderable."""
+        font = ImageProcessor(text=" ", font_size=20).get_font(20)
+        assert ImageProcessor._renders_text(font, "   ") is True
+
+    def test_font_without_glyphs_falls_back(self, temp_dir, glyphless_font_file):
+        """A loaded font that renders nothing is skipped for the next candidate."""
+        from PIL import ImageDraw
+
+        # Confirm the chosen font would blank the overlay on its own
+        blank = Image.new("RGB", (200, 100), color="black")
+        ImageDraw.Draw(blank).text(
+            (10, 10), "Test Text", fill="white", font=ImageFont.truetype(glyphless_font_file, 20)
+        )
+        assert blank.getextrema()[0][0] == 0  # no bright pixel drawn
+
+        p = ImageProcessor(text="Test Text", font_path=glyphless_font_file)
+        font = p.get_font_for_text(20, "Test Text")
+        assert font is not None
+        assert getattr(font, "path", None) != glyphless_font_file
+
+    def test_apply_text_visible_with_glyphless_font(self, glyphless_font_file):
+        """apply_text produces visible text even when the primary font cannot."""
+        p = ImageProcessor(
+            text="Test Text", color="#FFFFFF", font_size=20,
+            font_path=glyphless_font_file,
+        )
+        img = Image.new("RGB", (200, 100), color="black")
+        result = p.apply_text(img)
+        assert result is not None
+        # The fallback font drew visible (white-ish) pixels
+        _, max_r = result.convert("RGB").split()[0].getextrema()
+        assert max_r > 0
+
+    def test_covering_font_wins(self, custom_font_file):
+        """When the primary font covers the text, it stays active."""
+        p = ImageProcessor(text="Test Text", font_path=custom_font_file)
+        font = p.get_font_for_text(20, "Test Text")
+        assert getattr(font, "path", None) == custom_font_file
+
+    def test_get_font_for_text_always_returns_font(self, processor):
+        """get_font_for_text never returns None, even for exotic text."""
+        font = processor.get_font_for_text(20, "Test Text")
+        assert font is not None
