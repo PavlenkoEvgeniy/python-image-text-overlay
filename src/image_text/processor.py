@@ -7,7 +7,7 @@ from typing import Optional, Tuple
 
 from typing import Union
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 # Type alias for font objects
 FontType = Union[ImageFont.FreeTypeFont, ImageFont.ImageFont]
@@ -15,6 +15,23 @@ FontType = Union[ImageFont.FreeTypeFont, ImageFont.ImageFont]
 from .config import config
 
 logger = logging.getLogger(__name__)
+
+
+def load_image(path: str) -> Image.Image:
+    """Load an image with its visual orientation baked into pixels.
+
+    Viewers display an image according to its EXIF Orientation tag, which may
+    differ from how pixels are physically stored in the file. This function
+    transposes the pixels to match the visual orientation, so all further
+    processing works on what the user sees.
+
+    Args:
+        path: Path to the image file.
+
+    Returns:
+        PIL Image in visual orientation.
+    """
+    return ImageOps.exif_transpose(Image.open(path))
 
 
 class FontStyle(Enum):
@@ -44,6 +61,7 @@ class ImageProcessor:
         self,
         text: str = "",
         color: str = "#FFFFFF",
+        font_family: Optional[str] = None,
         font_path: Optional[str] = None,
         font_size: int = 40,
         font_style: str = "Normal",
@@ -56,7 +74,8 @@ class ImageProcessor:
         Args:
             text: Text to overlay on images.
             color: Text color (hex format).
-            font_path: Path to custom font file.
+            font_family: System font family name. Ignored when font_path is set.
+            font_path: Path to custom font file; takes precedence over font_family.
             font_size: Font size in pixels.
             font_style: Font style (Normal, Bold, Italic, Bold Italic).
             position: Text position on image.
@@ -65,6 +84,7 @@ class ImageProcessor:
         """
         self.text = text
         self.color = color
+        self.font_family = font_family
         self.font_path = font_path
         self.font_size = font_size
         self.font_style = font_style
@@ -72,8 +92,20 @@ class ImageProcessor:
         self.offset_up = offset_up
         self.offset_left = offset_left
 
+    # Suffix appended to a family name to probe its styled variant
+    STYLE_SUFFIXES = {
+        "Normal": "",
+        "Bold": " Bold",
+        "Italic": " Italic",
+        "Bold Italic": " Bold Italic",
+    }
+
     def get_font(self, size: int) -> FontType:
-        """Get PIL ImageFont with specified style.
+        """Get PIL ImageFont honoring the single-font rule.
+
+        A custom font file, when set, is the active font. Otherwise the
+        selected system family is used. If neither resolves, the fallback
+        chain applies.
 
         Args:
             size: Font size in pixels.
@@ -90,7 +122,12 @@ class ImageProcessor:
             except Exception as e:
                 logger.warning(f"Failed to load custom font {self.font_path}: {e}. Using fallback.")
 
-        # Try system fonts
+        # System font selected by family name
+        font = self._load_system_font(size)
+        if font is not None:
+            return font
+
+        # Fallback system fonts
         for font_name in config.system_fonts:
             try:
                 font = ImageFont.truetype(font_name, size)
@@ -315,7 +352,7 @@ class ImageProcessor:
             Processed PIL Image, or None on error.
         """
         try:
-            img = Image.open(image_path)
+            img = load_image(image_path)
             return self.apply_text(img)
         except Exception as e:
             logger.error(f"Failed to process image {image_path}: {e}")
@@ -359,6 +396,7 @@ class ImageProcessor:
         return cls(
             text=settings.get("text", ""),
             color=settings.get("color", config.default_color),
+            font_family=settings.get("font_family"),
             font_path=settings.get("font_path"),
             font_size=settings.get("font_size", config.default_font_size),
             font_style=settings.get("font_style", config.default_font_style),
@@ -376,6 +414,7 @@ class ImageProcessor:
         return {
             "text": self.text,
             "color": self.color,
+            "font_family": self.font_family,
             "font_path": self.font_path,
             "font_size": self.font_size,
             "font_style": self.font_style,

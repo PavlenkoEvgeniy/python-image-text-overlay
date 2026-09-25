@@ -28,6 +28,7 @@ class AppConfig:
     default_offset_up: int = 20
     default_offset_left: int = 20
     default_font_style: str = "Normal"
+    default_font_family: str = "Arial"
 
     # Font styles
     font_styles: Tuple[str, ...] = ("Normal", "Bold", "Italic", "Bold Italic")
