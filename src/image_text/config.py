@@ -10,7 +10,7 @@ class AppConfig:
     """Application configuration."""
 
     name: str = "Image Text Overlay"
-    version: str = "1.0.2"
+    version: str = "1.0.5"
     window_width: int = 950
     window_height: int = 750
 
@@ -38,6 +38,9 @@ class AppConfig:
     # Font size range
     min_font_size: int = 10
     max_font_size: int = 200
+
+    # Live preview debounce delay in milliseconds
+    preview_debounce_ms: int = 300
 
     # Fallback system fonts
     system_fonts: Tuple[str, ...] = (

@@ -37,6 +37,9 @@ class TextPosition(Enum):
 class ImageProcessor:
     """Handles image text overlay processing."""
 
+    # Shear factor used to synthesize italic (oblique) text.
+    ITALIC_SHEAR = 0.25
+
     def __init__(
         self,
         text: str = "",
@@ -78,17 +81,6 @@ class ImageProcessor:
         Returns:
             ImageFont object.
         """
-        style = self.font_style
-
-        if style == "Bold":
-            pil_style = "bold"
-        elif style == "Italic":
-            pil_style = "italic"
-        elif style == "Bold Italic":
-            pil_style = "bold italic"
-        else:
-            pil_style = "normal"
-
         # Try custom font first
         if self.font_path and os.path.exists(self.font_path):
             try:
@@ -111,25 +103,59 @@ class ImageProcessor:
         logger.info("Using default PIL font")
         return ImageFont.load_default()
 
-    def get_text_size(self, draw: ImageDraw.ImageDraw, text: str, font: FontType) -> Tuple[int, int]:
+    def _get_style_flags(self) -> Tuple[bool, bool]:
+        """Get (bold, italic) flags from the font style setting.
+
+        Returns:
+            Tuple of (bold, italic) flags.
+        """
+        style = (self.font_style or "").strip().lower()
+        return "bold" in style, "italic" in style
+
+    def _get_stroke_width(self, size: int, bold: bool) -> int:
+        """Get stroke width used to synthesize bold text.
+
+        Args:
+            size: Font size in pixels.
+            bold: Whether bold style is requested.
+
+        Returns:
+            Stroke width in pixels (0 for non-bold text).
+        """
+        if not bold:
+            return 0
+        return max(1, round(size / 25))
+
+    def get_text_size(
+        self,
+        draw: ImageDraw.ImageDraw,
+        text: str,
+        font: FontType,
+        stroke_width: int = 0,
+    ) -> Tuple[int, int, int, int]:
         """Calculate text bounding box dimensions.
 
         Args:
             draw: PIL ImageDraw object.
             text: Text to measure.
             font: Font to use.
+            stroke_width: Stroke width the text will be drawn with.
 
         Returns:
-            Tuple of (width, height).
+            Tuple of (width, height, offset_x, offset_y) — the size of the
+            bounding box and the offset of its top-left corner from the
+            layout origin.
         """
         try:
-            bbox = draw.textbbox((0, 0), text, font=font)
+            bbox = draw.textbbox((0, 0), text, font=font, stroke_width=stroke_width)
             width = bbox[2] - bbox[0]
             height = bbox[3] - bbox[1]
+            offset_x, offset_y = bbox[0], bbox[1]
         except Exception:
             # Fallback for older PIL versions
             width, height = draw.textsize(text, font=font)
-        return int(width), int(height)
+            offset_x, offset_y = 0, 0
+        return int(width), int(height), int(offset_x), int(offset_y)
 
     def calculate_position(
         self,
@@ -192,13 +218,92 @@ class ImageProcessor:
         draw = ImageDraw.Draw(img)
 
         font = self.get_font(self.font_size)
-        text_width, text_height = self.get_text_size(draw, self.text, font)
+        bold, italic = self._get_style_flags()
+        stroke_width = self._get_stroke_width(self.font_size, bold)
+
+        text_width, text_height, offset_x, offset_y = self.get_text_size(
+            draw, self.text, font, stroke_width
+        )
+
+        # Italic shear widens the rendered text to the right
+        shear_extra = int(self.ITALIC_SHEAR * text_height) if italic else 0
+        text_width += shear_extra
+
         x, y = self.calculate_position(img.width, img.height, text_width, text_height)
 
-        draw.text((x, y), self.text, fill=self.color, font=font)
+        if italic:
+            self._draw_italic_text(
+                img, x, y, text_width, text_height, offset_x, offset_y,
+                font, stroke_width,
+            )
+        else:
+            draw.text(
+                (x, y),
+                self.text,
+                fill=self.color,
+                font=font,
+                stroke_width=stroke_width,
+                stroke_fill=self.color,
+            )
 
-        logger.info(f"Applied text overlay: '{self.text}' at position ({x}, {y})")
+        logger.info(
+            f"Applied text overlay: '{self.text}' at position ({x}, {y}) "
+            f"(style: {self.font_style})"
+        )
         return img
+
+    def _draw_italic_text(
+        self,
+        img: Image.Image,
+        x: int,
+        y: int,
+        text_width: int,
+        text_height: int,
+        offset_x: int,
+        offset_y: int,
+        font: FontType,
+        stroke_width: int,
+    ) -> None:
+        """Draw text with a synthesized oblique (italic) shear.
+
+        The text is rendered onto a transparent layer, sheared so that the
+        top leans right while the baseline stays in place, then pasted onto
+        the target image.
+
+        Args:
+            img: Target image.
+            x: Left coordinate of the text bounding box.
+            y: Top coordinate of the text bounding box.
+            text_width: Rendered text width in pixels (shear extra included).
+            text_height: Rendered text height in pixels.
+            offset_x: Horizontal offset of the text bounding box.
+            offset_y: Vertical offset of the text bounding box.
+            font: Font to draw with.
+            stroke_width: Stroke width for bold synthesis.
+        """
+        pad = stroke_width + 2
+        layer = Image.new(
+            "RGBA", (text_width + 2 * pad, text_height + 2 * pad), (0, 0, 0, 0)
+        )
+        layer_draw = ImageDraw.Draw(layer)
+        layer_draw.text(
+            (pad - offset_x, pad - offset_y),
+            self.text,
+            fill=self.color,
+            font=font,
+            stroke_width=stroke_width,
+            stroke_fill=self.color,
+        )
+
+        shear = self.ITALIC_SHEAR
+        offset = int(shear * layer.height)
+        layer = layer.transform(
+            (layer.width + offset, layer.height),
+            Image.AFFINE,
+            (1, shear, -shear * layer.height, 0, 1, 0),
+        )
+
+        img.paste(layer, (x - pad, y - pad), layer)
 
     def process_image_path(self, image_path: str) -> Optional[Image.Image]:
         """Load and process an image from path.
